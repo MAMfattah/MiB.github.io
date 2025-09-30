@@ -246,88 +246,156 @@ MIIDXTCCAkWgAwIBAgIJAKL0UG+mRkSvMA0GCSqGSIb3DQEBCwUAMEUxCzAJBgNV
         }
 
         function decodeCSR(pem) {
-            // Remove PEM headers and decode base64
-            const pemBody = pem.replace(/-----BEGIN[^-]+-----/, '')
-                               .replace(/-----END[^-]+-----/, '')
-                               .replace(/\s/g, '');
-            
-            const derHex = KJUR.crypto.Util.base64ToHex(pemBody);
-            const asn1 = ASN1HEX.parse(derHex);
-            
             let html = '<div class="section-title">Certificate Signing Request (CSR)</div>';
             
-            // Parse CSR structure
-            const certReqInfo = ASN1HEX.getChildIdx(derHex, 0)[0];
-            const subjectIdx = ASN1HEX.getChildIdx(derHex, certReqInfo)[2];
-            const publicKeyIdx = ASN1HEX.getChildIdx(derHex, certReqInfo)[3];
-            
-            // Get subject
-            const subject = X509.hex2dn(ASN1HEX.getVbyList(derHex, 0, [0, 2]));
-            html += '<div class="info-group">';
-            html += '<div class="info-label">Subject Distinguished Name:</div>';
-            html += `<div class="info-value">${subject}</div>`;
-            html += '</div>';
-            
-            // Parse subject details
-            const subjectParts = parseDistinguishedName(subject);
-            if (Object.keys(subjectParts).length > 0) {
-                html += '<div class="section-title">Subject Details:</div>';
-                for (const [key, value] of Object.entries(subjectParts)) {
-                    html += '<div class="info-group">';
-                    html += `<div class="info-label">${formatOIDName(key)}:</div>`;
-                    html += `<div class="info-value">${value}</div>`;
-                    html += '</div>';
-                }
-            }
-            
-            // Get public key info
             try {
-                const pubKeyHex = ASN1HEX.getVbyList(derHex, 0, [0, 3]);
-                const keyObj = KEYUTIL.getKey(pubKeyHex, null, 'pkcs8pub');
+                // Remove PEM headers and decode base64
+                const pemBody = pem.replace(/-----BEGIN[^-]+-----/, '')
+                                   .replace(/-----END[^-]+-----/, '')
+                                   .replace(/\s/g, '');
                 
-                html += '<div class="section-title">Public Key Information:</div>';
-                html += '<div class="info-group">';
-                html += '<div class="info-label">Algorithm:</div>';
+                const derHex = b64tohex(pemBody);
                 
-                if (keyObj.type === 'RSA') {
-                    html += `<div class="info-value">RSA</div>`;
-                    html += '</div>';
-                    html += '<div class="info-group">';
-                    html += '<div class="info-label">Key Size:</div>';
-                    html += `<div class="info-value">${keyObj.n.bitLength()} bits</div>`;
-                } else if (keyObj.type === 'EC') {
-                    html += `<div class="info-value">Elliptic Curve (EC)</div>`;
-                    html += '</div>';
-                    html += '<div class="info-group">';
-                    html += '<div class="info-label">Curve:</div>';
-                    html += `<div class="info-value">${keyObj.curveName || 'Unknown'}</div>`;
-                } else {
-                    html += `<div class="info-value">${keyObj.type || 'Unknown'}</div>`;
+                // Parse CSR structure manually
+                // CSR structure: SEQUENCE { certificationRequestInfo, signatureAlgorithm, signature }
+                const children = ASN1HEX.getChildIdx(derHex, 0);
+                if (!children || children.length < 3) {
+                    throw new Error('Invalid CSR structure');
                 }
-                html += '</div>';
-            } catch (e) {
-                html += '<div class="section-title">Public Key Information:</div>';
-                html += '<div class="info-group">';
-                html += `<div class="info-value">Unable to parse public key details</div>`;
-                html += '</div>';
-            }
-            
-            // Get signature algorithm
-            try {
-                const sigAlgIdx = ASN1HEX.getChildIdx(derHex, 0)[1];
-                const sigAlgOid = ASN1HEX.getVbyList(derHex, 0, [1, 0]);
-                const sigAlgName = KJUR.asn1.x509.OID.oid2name(sigAlgOid);
                 
-                html += '<div class="section-title">Signature:</div>';
-                html += '<div class="info-group">';
-                html += '<div class="info-label">Signature Algorithm:</div>';
-                html += `<div class="info-value">${sigAlgName || sigAlgOid}</div>`;
-                html += '</div>';
+                const certReqInfo = children[0];
+                const sigAlgIdx = children[1];
+                
+                // Get children of certificationRequestInfo
+                const reqInfoChildren = ASN1HEX.getChildIdx(derHex, certReqInfo);
+                
+                // Extract subject (usually at index 1, after version)
+                let subjectIdx = -1;
+                let pubKeyIdx = -1;
+                
+                for (let i = 0; i < reqInfoChildren.length; i++) {
+                    const tag = derHex.substr(reqInfoChildren[i], 2);
+                    if (tag === '30') { // SEQUENCE tag
+                        const childrenOfThis = ASN1HEX.getChildIdx(derHex, reqInfoChildren[i]);
+                        if (childrenOfThis && childrenOfThis.length > 0) {
+                            const firstChildTag = derHex.substr(childrenOfThis[0], 2);
+                            if (firstChildTag === '31') { // SET tag (subject is sequence of sets)
+                                subjectIdx = reqInfoChildren[i];
+                            } else if (firstChildTag === '30') { // SEQUENCE tag (public key is sequence)
+                                pubKeyIdx = reqInfoChildren[i];
+                            }
+                        }
+                    }
+                }
+                
+                // Parse subject
+                if (subjectIdx !== -1) {
+                    try {
+                        const subjectHex = ASN1HEX.getV(derHex, subjectIdx);
+                        const subject = parseSubjectFromHex(derHex, subjectIdx);
+                        
+                        html += '<div class="section-title">Subject Information:</div>';
+                        
+                        for (const [key, value] of Object.entries(subject)) {
+                            html += '<div class="info-group">';
+                            html += `<div class="info-label">${formatOIDName(key)}:</div>`;
+                            html += `<div class="info-value">${value}</div>`;
+                            html += '</div>';
+                        }
+                    } catch (e) {
+                        html += '<div class="info-group">';
+                        html += '<div class="info-label">Subject:</div>';
+                        html += `<div class="info-value">Unable to parse subject: ${e.message}</div>`;
+                        html += '</div>';
+                    }
+                }
+                
+                // Parse public key
+                if (pubKeyIdx !== -1) {
+                    try {
+                        const pubKeySeq = ASN1HEX.getChildIdx(derHex, pubKeyIdx);
+                        const algIdx = pubKeySeq[0];
+                        const algOidIdx = ASN1HEX.getChildIdx(derHex, algIdx)[0];
+                        const algOid = ASN1HEX.getV(derHex, algOidIdx);
+                        const algName = KJUR.asn1.x509.OID.oid2name(algOid);
+                        
+                        html += '<div class="section-title">Public Key Information:</div>';
+                        html += '<div class="info-group">';
+                        html += '<div class="info-label">Algorithm:</div>';
+                        html += `<div class="info-value">${algName || algOid}</div>`;
+                        html += '</div>';
+                        
+                        // Try to get key size for RSA
+                        if (algName && algName.includes('RSA')) {
+                            try {
+                                const bitStringIdx = pubKeySeq[1];
+                                const bitStringV = ASN1HEX.getV(derHex, bitStringIdx);
+                                // Skip the first byte (unused bits) and parse the rest as a sequence
+                                const keySeqHex = bitStringV.substr(2);
+                                const keySeqChildren = ASN1HEX.getChildIdx(keySeqHex, 0);
+                                if (keySeqChildren && keySeqChildren.length > 0) {
+                                    const modulusHex = ASN1HEX.getV(keySeqHex, keySeqChildren[0]);
+                                    const keySize = (modulusHex.length / 2) * 8;
+                                    html += '<div class="info-group">';
+                                    html += '<div class="info-label">Key Size:</div>';
+                                    html += `<div class="info-value">${keySize} bits</div>`;
+                                    html += '</div>';
+                                }
+                            } catch (e) {
+                                // Unable to determine key size
+                            }
+                        }
+                    } catch (e) {
+                        html += '<div class="section-title">Public Key Information:</div>';
+                        html += '<div class="info-group">';
+                        html += `<div class="info-value">Unable to parse public key details</div>`;
+                        html += '</div>';
+                    }
+                }
+                
+                // Parse signature algorithm
+                try {
+                    const sigAlgChildren = ASN1HEX.getChildIdx(derHex, sigAlgIdx);
+                    const sigAlgOid = ASN1HEX.getV(derHex, sigAlgChildren[0]);
+                    const sigAlgName = KJUR.asn1.x509.OID.oid2name(sigAlgOid);
+                    
+                    html += '<div class="section-title">Signature:</div>';
+                    html += '<div class="info-group">';
+                    html += '<div class="info-label">Signature Algorithm:</div>';
+                    html += `<div class="info-value">${sigAlgName || sigAlgOid}</div>`;
+                    html += '</div>';
+                } catch (e) {
+                    // Ignore if signature algorithm cannot be parsed
+                }
+                
             } catch (e) {
-                // Ignore if signature algorithm cannot be parsed
+                html += '<div class="info-group">';
+                html += `<div class="info-value" style="color: red;">Error parsing CSR: ${e.message}</div>`;
+                html += '</div>';
             }
             
             return html;
+        }
+        
+        function parseSubjectFromHex(derHex, subjectIdx) {
+            const subject = {};
+            const rdnSequences = ASN1HEX.getChildIdx(derHex, subjectIdx);
+            
+            rdnSequences.forEach(rdnIdx => {
+                const rdnChildren = ASN1HEX.getChildIdx(derHex, rdnIdx);
+                rdnChildren.forEach(attrIdx => {
+                    const attrChildren = ASN1HEX.getChildIdx(derHex, attrIdx);
+                    if (attrChildren && attrChildren.length >= 2) {
+                        const oidHex = ASN1HEX.getV(derHex, attrChildren[0]);
+                        const oidName = KJUR.asn1.x509.OID.oid2name(oidHex);
+                        const valueHex = ASN1HEX.getV(derHex, attrChildren[1]);
+                        const value = hextorstr(valueHex);
+                        subject[oidName || oidHex] = value;
+                    }
+                });
+            });
+            
+            return subject;
         }
 
         function decodeCert(pem) {
