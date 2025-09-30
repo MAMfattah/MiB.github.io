@@ -168,6 +168,11 @@
             margin: 20px 0 10px 0;
             font-weight: 600;
         }
+
+        .sub-value {
+            margin-left: 20px;
+            margin-top: 5px;
+        }
     </style>
 </head>
 <body>
@@ -241,16 +246,30 @@ MIIDXTCCAkWgAwIBAgIJAKL0UG+mRkSvMA0GCSqGSIb3DQEBCwUAMEUxCzAJBgNV
         }
 
         function decodeCSR(pem) {
-            const csr = new KJUR.asn1.csr.CSRUtil.getInfo(pem);
+            // Remove PEM headers and decode base64
+            const pemBody = pem.replace(/-----BEGIN[^-]+-----/, '')
+                               .replace(/-----END[^-]+-----/, '')
+                               .replace(/\s/g, '');
+            
+            const derHex = KJUR.crypto.Util.base64ToHex(pemBody);
+            const asn1 = ASN1HEX.parse(derHex);
             
             let html = '<div class="section-title">Certificate Signing Request (CSR)</div>';
             
+            // Parse CSR structure
+            const certReqInfo = ASN1HEX.getChildIdx(derHex, 0)[0];
+            const subjectIdx = ASN1HEX.getChildIdx(derHex, certReqInfo)[2];
+            const publicKeyIdx = ASN1HEX.getChildIdx(derHex, certReqInfo)[3];
+            
+            // Get subject
+            const subject = X509.hex2dn(ASN1HEX.getVbyList(derHex, 0, [0, 2]));
             html += '<div class="info-group">';
             html += '<div class="info-label">Subject Distinguished Name:</div>';
-            html += `<div class="info-value">${csr.subject.str}</div>`;
+            html += `<div class="info-value">${subject}</div>`;
             html += '</div>';
             
-            const subjectParts = parseDistinguishedName(csr.subject.str);
+            // Parse subject details
+            const subjectParts = parseDistinguishedName(subject);
             if (Object.keys(subjectParts).length > 0) {
                 html += '<div class="section-title">Subject Details:</div>';
                 for (const [key, value] of Object.entries(subjectParts)) {
@@ -261,29 +280,52 @@ MIIDXTCCAkWgAwIBAgIJAKL0UG+mRkSvMA0GCSqGSIb3DQEBCwUAMEUxCzAJBgNV
                 }
             }
             
-            if (csr.sbjpubkey) {
+            // Get public key info
+            try {
+                const pubKeyHex = ASN1HEX.getVbyList(derHex, 0, [0, 3]);
+                const keyObj = KEYUTIL.getKey(pubKeyHex, null, 'pkcs8pub');
+                
                 html += '<div class="section-title">Public Key Information:</div>';
                 html += '<div class="info-group">';
                 html += '<div class="info-label">Algorithm:</div>';
-                html += `<div class="info-value">${csr.sbjpubkey}</div>`;
+                
+                if (keyObj.type === 'RSA') {
+                    html += `<div class="info-value">RSA</div>`;
+                    html += '</div>';
+                    html += '<div class="info-group">';
+                    html += '<div class="info-label">Key Size:</div>';
+                    html += `<div class="info-value">${keyObj.n.bitLength()} bits</div>`;
+                } else if (keyObj.type === 'EC') {
+                    html += `<div class="info-value">Elliptic Curve (EC)</div>`;
+                    html += '</div>';
+                    html += '<div class="info-group">';
+                    html += '<div class="info-label">Curve:</div>';
+                    html += `<div class="info-value">${keyObj.curveName || 'Unknown'}</div>`;
+                } else {
+                    html += `<div class="info-value">${keyObj.type || 'Unknown'}</div>`;
+                }
+                html += '</div>';
+            } catch (e) {
+                html += '<div class="section-title">Public Key Information:</div>';
+                html += '<div class="info-group">';
+                html += `<div class="info-value">Unable to parse public key details</div>`;
                 html += '</div>';
             }
             
-            if (csr.extreq && csr.extreq.length > 0) {
-                html += '<div class="section-title">Requested Extensions:</div>';
-                csr.extreq.forEach(ext => {
-                    html += '<div class="info-group">';
-                    html += `<div class="info-label">${ext.extname || ext.oid}:</div>`;
-                    html += `<div class="info-value">${JSON.stringify(ext, null, 2)}</div>`;
-                    html += '</div>';
-                });
+            // Get signature algorithm
+            try {
+                const sigAlgIdx = ASN1HEX.getChildIdx(derHex, 0)[1];
+                const sigAlgOid = ASN1HEX.getVbyList(derHex, 0, [1, 0]);
+                const sigAlgName = KJUR.asn1.x509.OID.oid2name(sigAlgOid);
+                
+                html += '<div class="section-title">Signature:</div>';
+                html += '<div class="info-group">';
+                html += '<div class="info-label">Signature Algorithm:</div>';
+                html += `<div class="info-value">${sigAlgName || sigAlgOid}</div>`;
+                html += '</div>';
+            } catch (e) {
+                // Ignore if signature algorithm cannot be parsed
             }
-            
-            html += '<div class="section-title">Signature:</div>';
-            html += '<div class="info-group">';
-            html += '<div class="info-label">Signature Algorithm:</div>';
-            html += `<div class="info-value">${csr.sigalg}</div>`;
-            html += '</div>';
             
             return html;
         }
@@ -305,14 +347,36 @@ MIIDXTCCAkWgAwIBAgIJAKL0UG+mRkSvMA0GCSqGSIb3DQEBCwUAMEUxCzAJBgNV
             html += '</div>';
             
             html += '<div class="section-title">Issuer:</div>';
+            const issuer = cert.getIssuerString();
             html += '<div class="info-group">';
-            html += `<div class="info-value">${cert.getIssuerString()}</div>`;
+            html += `<div class="info-value">${issuer}</div>`;
             html += '</div>';
             
+            const issuerParts = parseDistinguishedName(issuer);
+            if (Object.keys(issuerParts).length > 1) {
+                for (const [key, value] of Object.entries(issuerParts)) {
+                    html += '<div class="info-group sub-value">';
+                    html += `<div class="info-label">${formatOIDName(key)}:</div>`;
+                    html += `<div class="info-value">${value}</div>`;
+                    html += '</div>';
+                }
+            }
+            
             html += '<div class="section-title">Subject:</div>';
+            const subject = cert.getSubjectString();
             html += '<div class="info-group">';
-            html += `<div class="info-value">${cert.getSubjectString()}</div>`;
+            html += `<div class="info-value">${subject}</div>`;
             html += '</div>';
+            
+            const subjectParts = parseDistinguishedName(subject);
+            if (Object.keys(subjectParts).length > 1) {
+                for (const [key, value] of Object.entries(subjectParts)) {
+                    html += '<div class="info-group sub-value">';
+                    html += `<div class="info-label">${formatOIDName(key)}:</div>`;
+                    html += `<div class="info-value">${value}</div>`;
+                    html += '</div>';
+                }
+            }
             
             html += '<div class="section-title">Validity Period:</div>';
             html += '<div class="info-group">';
@@ -324,13 +388,25 @@ MIIDXTCCAkWgAwIBAgIJAKL0UG+mRkSvMA0GCSqGSIb3DQEBCwUAMEUxCzAJBgNV
             html += `<div class="info-value">${cert.getNotAfter()}</div>`;
             html += '</div>';
             
+            // Check if certificate is currently valid
+            const now = new Date();
+            const notBefore = new Date(cert.getNotBefore());
+            const notAfter = new Date(cert.getNotAfter());
+            const isValid = now >= notBefore && now <= notAfter;
+            
+            html += '<div class="info-group">';
+            html += '<div class="info-label">Status:</div>';
+            html += `<div class="info-value" style="color: ${isValid ? 'green' : 'red'}; font-weight: bold;">`;
+            html += isValid ? '✓ Currently Valid' : '✗ Expired or Not Yet Valid';
+            html += '</div></div>';
+            
             html += '<div class="section-title">Public Key:</div>';
+            const pubKeyInfo = cert.getPublicKeyInfoPropList();
             html += '<div class="info-group">';
             html += '<div class="info-label">Algorithm:</div>';
-            html += `<div class="info-value">${cert.getPublicKeyInfoPropList().algorithm.name}</div>`;
+            html += `<div class="info-value">${pubKeyInfo.algorithm.name}</div>`;
             html += '</div>';
             
-            const pubKeyInfo = cert.getPublicKeyInfoPropList();
             if (pubKeyInfo.keylength) {
                 html += '<div class="info-group">';
                 html += '<div class="info-label">Key Size:</div>';
@@ -344,14 +420,46 @@ MIIDXTCCAkWgAwIBAgIJAKL0UG+mRkSvMA0GCSqGSIb3DQEBCwUAMEUxCzAJBgNV
             html += `<div class="info-value">${cert.getSignatureAlgorithmField()}</div>`;
             html += '</div>';
             
-            const san = cert.getExtSubjectAltName();
-            if (san && san.length > 0) {
-                html += '<div class="section-title">Subject Alternative Names:</div>';
-                html += '<div class="info-group">';
-                san.forEach(name => {
-                    html += `<div class="info-value">${name[0]}: ${name[1]}</div>`;
-                });
-                html += '</div>';
+            // Subject Alternative Names
+            try {
+                const san = cert.getExtSubjectAltName();
+                if (san && san.length > 0) {
+                    html += '<div class="section-title">Subject Alternative Names (SAN):</div>';
+                    html += '<div class="info-group">';
+                    san.forEach(name => {
+                        html += `<div class="info-value">${name[0]}: ${name[1]}</div>`;
+                    });
+                    html += '</div>';
+                }
+            } catch (e) {
+                // No SAN extension
+            }
+            
+            // Key Usage
+            try {
+                const keyUsage = cert.getExtKeyUsage();
+                if (keyUsage) {
+                    html += '<div class="section-title">Key Usage:</div>';
+                    html += '<div class="info-group">';
+                    html += `<div class="info-value">${keyUsage.names.join(', ')}</div>`;
+                    html += '</div>';
+                }
+            } catch (e) {
+                // No key usage extension
+            }
+            
+            // Basic Constraints
+            try {
+                const basicConstraints = cert.getExtBasicConstraints();
+                if (basicConstraints) {
+                    html += '<div class="section-title">Basic Constraints:</div>';
+                    html += '<div class="info-group">';
+                    html += '<div class="info-label">CA Certificate:</div>';
+                    html += `<div class="info-value">${basicConstraints.cA ? 'Yes' : 'No'}</div>`;
+                    html += '</div>';
+                }
+            } catch (e) {
+                // No basic constraints extension
             }
             
             return html;
