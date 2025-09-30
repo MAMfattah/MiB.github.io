@@ -1,58 +1,393 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>CSR Decoder</title>
-<script src="https://cdn.jsdelivr.net/npm/jsrsasign"></script>
-<style>
-  body { font-family: Arial, sans-serif; margin: 20px; }
-  textarea { width: 100%; height: 200px; font-family: monospace; }
-  pre { background: #f0f0f0; padding: 10px; white-space: pre-wrap; }
-  button { padding: 10px 20px; margin-top: 10px; }
-</style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Certificate Decoder</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            opacity: 0.9;
+            font-size: 1.1em;
+        }
+
+        .content {
+            padding: 30px;
+        }
+
+        .input-section {
+            margin-bottom: 30px;
+        }
+
+        label {
+            display: block;
+            font-weight: 600;
+            margin-bottom: 10px;
+            color: #333;
+            font-size: 1.1em;
+        }
+
+        textarea {
+            width: 100%;
+            min-height: 200px;
+            padding: 15px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            resize: vertical;
+            transition: border-color 0.3s;
+        }
+
+        textarea:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .button-group {
+            display: flex;
+            gap: 15px;
+            margin-top: 15px;
+        }
+
+        button {
+            flex: 1;
+            padding: 15px 30px;
+            font-size: 1.1em;
+            font-weight: 600;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .decode-btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .decode-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 20px rgba(102, 126, 234, 0.4);
+        }
+
+        .clear-btn {
+            background: #f0f0f0;
+            color: #333;
+        }
+
+        .clear-btn:hover {
+            background: #e0e0e0;
+        }
+
+        .output-section {
+            margin-top: 30px;
+            display: none;
+        }
+
+        .output-section.visible {
+            display: block;
+        }
+
+        .output-box {
+            background: #f8f9fa;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            padding: 20px;
+            max-height: 600px;
+            overflow-y: auto;
+        }
+
+        .error {
+            background: #fee;
+            border-color: #fcc;
+            color: #c33;
+        }
+
+        .info-group {
+            margin-bottom: 20px;
+            padding-bottom: 20px;
+            border-bottom: 1px solid #ddd;
+        }
+
+        .info-group:last-child {
+            border-bottom: none;
+        }
+
+        .info-label {
+            font-weight: 600;
+            color: #667eea;
+            margin-bottom: 5px;
+        }
+
+        .info-value {
+            color: #333;
+            padding: 8px;
+            background: white;
+            border-radius: 4px;
+            font-family: 'Courier New', monospace;
+            word-break: break-all;
+        }
+
+        .section-title {
+            font-size: 1.3em;
+            color: #667eea;
+            margin: 20px 0 10px 0;
+            font-weight: 600;
+        }
+    </style>
 </head>
 <body>
-<h1>Certificate Signing Request (CSR) Decoder</h1>
-<p>Paste your CSR below (PEM format including headers):</p>
-<textarea id="csrInput" placeholder="Paste CSR here..."></textarea><br />
-<button id="decodeBtn">Decode CSR</button>
+    <div class="container">
+        <div class="header">
+            <h1>🔐 Certificate Decoder</h1>
+            <p>Decode X.509 Certificates and Certificate Signing Requests (CSR)</p>
+        </div>
+        
+        <div class="content">
+            <div class="input-section">
+                <label for="certInput">Paste your Certificate or CSR (PEM format):</label>
+                <textarea id="certInput" placeholder="-----BEGIN CERTIFICATE REQUEST-----
+MIICvDCCAaQCAQAwdzELMAkGA1UEBhMCVVMxEzARBgNVBAgMCkNhbGlmb3JuaWEx
+...
+-----END CERTIFICATE REQUEST-----
 
-<h2>Decoded Information:</h2>
-<pre id="decodedOutput">No data decoded yet.</pre>
+or
 
-<script>
-document.getElementById('decodeBtn').addEventListener('click', () => {
-  console.log('Decode button clicked');
-  alert('Decode button clicked');
+-----BEGIN CERTIFICATE-----
+MIIDXTCCAkWgAwIBAgIJAKL0UG+mRkSvMA0GCSqGSIb3DQEBCwUAMEUxCzAJBgNV
+...
+-----END CERTIFICATE-----"></textarea>
+                
+                <div class="button-group">
+                    <button class="decode-btn" onclick="decodeCertificate()">Decode</button>
+                    <button class="clear-btn" onclick="clearAll()">Clear</button>
+                </div>
+            </div>
 
-  const csrPEM = document.getElementById('csrInput').value.trim();
-  const output = document.getElementById('decodedOutput');
+            <div class="output-section" id="outputSection">
+                <label>Decoded Information:</label>
+                <div class="output-box" id="output"></div>
+            </div>
+        </div>
+    </div>
 
-  try {
-    if(!csrPEM) {
-      output.textContent = 'Please paste a CSR before decoding.';
-      return;
-    }
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jsrsasign/11.1.0/jsrsasign-all-min.js"></script>
+    
+    <script>
+        function decodeCertificate() {
+            const input = document.getElementById('certInput').value.trim();
+            const output = document.getElementById('output');
+            const outputSection = document.getElementById('outputSection');
+            
+            if (!input) {
+                output.innerHTML = '<div class="error">Please paste a certificate or CSR</div>';
+                outputSection.classList.add('visible');
+                return;
+            }
 
-    const pemBody = csrPEM.replace(/-----BEGIN CERTIFICATE REQUEST-----/, '')
-                          .replace(/-----END CERTIFICATE REQUEST-----/, '')
-                          .replace(/\s+/g, '');
-    if(!pemBody) {
-      output.textContent = 'Invalid CSR format.';
-      return;
-    }
+            try {
+                let result = '';
+                
+                if (input.includes('BEGIN CERTIFICATE REQUEST') || input.includes('BEGIN NEW CERTIFICATE REQUEST')) {
+                    result = decodeCSR(input);
+                } else if (input.includes('BEGIN CERTIFICATE')) {
+                    result = decodeCert(input);
+                } else {
+                    throw new Error('Invalid format. Please paste a valid PEM encoded certificate or CSR.');
+                }
+                
+                output.innerHTML = result;
+                output.classList.remove('error');
+                outputSection.classList.add('visible');
+            } catch (error) {
+                output.innerHTML = `<div class="error"><strong>Error:</strong> ${error.message}</div>`;
+                output.classList.add('error');
+                outputSection.classList.add('visible');
+            }
+        }
 
-    const b64tohex = (b64) => {
-      const raw = atob(b64);
-      let result = '';
-      for(let i=0; i<raw.length; i++) {
-        let h = raw.charCodeAt(i).toString(16);
-        if(h.length === 1) h = '0' + h;
-        result += h;
-      }
-      return result;
-    };
-    const csrHex = b64tohex(pemBody);
+        function decodeCSR(pem) {
+            const csr = new KJUR.asn1.csr.CSRUtil.getInfo(pem);
+            
+            let html = '<div class="section-title">Certificate Signing Request (CSR)</div>';
+            
+            html += '<div class="info-group">';
+            html += '<div class="info-label">Subject Distinguished Name:</div>';
+            html += `<div class="info-value">${csr.subject.str}</div>`;
+            html += '</div>';
+            
+            const subjectParts = parseDistinguishedName(csr.subject.str);
+            if (Object.keys(subjectParts).length > 0) {
+                html += '<div class="section-title">Subject Details:</div>';
+                for (const [key, value] of Object.entries(subjectParts)) {
+                    html += '<div class="info-group">';
+                    html += `<div class="info-label">${formatOIDName(key)}:</div>`;
+                    html += `<div class="info-value">${value}</div>`;
+                    html += '</div>';
+                }
+            }
+            
+            if (csr.sbjpubkey) {
+                html += '<div class="section-title">Public Key Information:</div>';
+                html += '<div class="info-group">';
+                html += '<div class="info-label">Algorithm:</div>';
+                html += `<div class="info-value">${csr.sbjpubkey}</div>`;
+                html += '</div>';
+            }
+            
+            if (csr.extreq && csr.extreq.length > 0) {
+                html += '<div class="section-title">Requested Extensions:</div>';
+                csr.extreq.forEach(ext => {
+                    html += '<div class="info-group">';
+                    html += `<div class="info-label">${ext.extname || ext.oid}:</div>`;
+                    html += `<div class="info-value">${JSON.stringify(ext, null, 2)}</div>`;
+                    html += '</div>';
+                });
+            }
+            
+            html += '<div class="section-title">Signature:</div>';
+            html += '<div class="info-group">';
+            html += '<div class="info-label">Signature Algorithm:</div>';
+            html += `<div class="info-value">${csr.sigalg}</div>`;
+            html += '</div>';
+            
+            return html;
+        }
 
-    const csr = new KJUR.asn1.csr.CertificationRequest({hex: csrHex});
+        function decodeCert(pem) {
+            const cert = new X509();
+            cert.readCertPEM(pem);
+            
+            let html = '<div class="section-title">X.509 Certificate</div>';
+            
+            html += '<div class="info-group">';
+            html += '<div class="info-label">Version:</div>';
+            html += `<div class="info-value">v${cert.version}</div>`;
+            html += '</div>';
+            
+            html += '<div class="info-group">';
+            html += '<div class="info-label">Serial Number:</div>';
+            html += `<div class="info-value">${cert.getSerialNumberHex()}</div>`;
+            html += '</div>';
+            
+            html += '<div class="section-title">Issuer:</div>';
+            html += '<div class="info-group">';
+            html += `<div class="info-value">${cert.getIssuerString()}</div>`;
+            html += '</div>';
+            
+            html += '<div class="section-title">Subject:</div>';
+            html += '<div class="info-group">';
+            html += `<div class="info-value">${cert.getSubjectString()}</div>`;
+            html += '</div>';
+            
+            html += '<div class="section-title">Validity Period:</div>';
+            html += '<div class="info-group">';
+            html += '<div class="info-label">Not Before:</div>';
+            html += `<div class="info-value">${cert.getNotBefore()}</div>`;
+            html += '</div>';
+            html += '<div class="info-group">';
+            html += '<div class="info-label">Not After:</div>';
+            html += `<div class="info-value">${cert.getNotAfter()}</div>`;
+            html += '</div>';
+            
+            html += '<div class="section-title">Public Key:</div>';
+            html += '<div class="info-group">';
+            html += '<div class="info-label">Algorithm:</div>';
+            html += `<div class="info-value">${cert.getPublicKeyInfoPropList().algorithm.name}</div>`;
+            html += '</div>';
+            
+            const pubKeyInfo = cert.getPublicKeyInfoPropList();
+            if (pubKeyInfo.keylength) {
+                html += '<div class="info-group">';
+                html += '<div class="info-label">Key Size:</div>';
+                html += `<div class="info-value">${pubKeyInfo.keylength} bits</div>`;
+                html += '</div>';
+            }
+            
+            html += '<div class="section-title">Signature:</div>';
+            html += '<div class="info-group">';
+            html += '<div class="info-label">Signature Algorithm:</div>';
+            html += `<div class="info-value">${cert.getSignatureAlgorithmField()}</div>`;
+            html += '</div>';
+            
+            const san = cert.getExtSubjectAltName();
+            if (san && san.length > 0) {
+                html += '<div class="section-title">Subject Alternative Names:</div>';
+                html += '<div class="info-group">';
+                san.forEach(name => {
+                    html += `<div class="info-value">${name[0]}: ${name[1]}</div>`;
+                });
+                html += '</div>';
+            }
+            
+            return html;
+        }
+
+        function parseDistinguishedName(dn) {
+            const parts = {};
+            const pairs = dn.split('/').filter(p => p);
+            pairs.forEach(pair => {
+                const [key, value] = pair.split('=');
+                if (key && value) {
+                    parts[key] = value;
+                }
+            });
+            return parts;
+        }
+
+        function formatOIDName(oid) {
+            const names = {
+                'C': 'Country',
+                'ST': 'State/Province',
+                'L': 'Locality',
+                'O': 'Organization',
+                'OU': 'Organizational Unit',
+                'CN': 'Common Name',
+                'E': 'Email',
+                'emailAddress': 'Email Address'
+            };
+            return names[oid] || oid;
+        }
+
+        function clearAll() {
+            document.getElementById('certInput').value = '';
+            document.getElementById('output').innerHTML = '';
+            document.getElementById('outputSection').classList.remove('visible');
+        }
+    </script>
+</body>
+</html>
