@@ -546,6 +546,7 @@ MIIDXTCCAkWgAwIBAgIJAKL0UG+mRkSvMA0GCSqGSIb3DQEBCwUAMEUxCzAJBgNV
         }
 
         function formatOIDName(oid) {
+            // Standard attribute names
             const names = {
                 'C': 'Country',
                 'ST': 'State/Province',
@@ -554,8 +555,68 @@ MIIDXTCCAkWgAwIBAgIJAKL0UG+mRkSvMA0GCSqGSIb3DQEBCwUAMEUxCzAJBgNV
                 'OU': 'Organizational Unit',
                 'CN': 'Common Name',
                 'E': 'Email',
-                'emailAddress': 'Email Address'
+                'emailAddress': 'Email Address',
+                'DC': 'Domain Component',
+                'UID': 'User ID',
+                'SN': 'Surname',
+                'GN': 'Given Name',
+                'title': 'Title',
+                'initials': 'Initials',
+                'generationQualifier': 'Generation Qualifier',
+                'dnQualifier': 'DN Qualifier',
+                'pseudonym': 'Pseudonym',
+                'serialNumber': 'Serial Number',
+                'street': 'Street Address',
+                'postalCode': 'Postal Code'
             };
+            
+            // Common OID mappings
+            const oidMap = {
+                '550403': 'Surname (SN)',
+                '550404': 'Serial Number',
+                '550406': 'Country (C)',
+                '550407': 'Locality (L)',
+                '550408': 'State/Province (ST)',
+                '550409': 'Street Address',
+                '55040a': 'Organization (O)',
+                '55040b': 'Organizational Unit (OU)',
+                '55040c': 'Title',
+                '550411': 'Postal Code',
+                '550403': 'Common Name (CN)',
+                '55042a': 'Given Name (GN)',
+                '55042b': 'Initials',
+                '2a864886f70d010901': 'Email Address',
+                '2a864886f70d010902': 'Unstructured Name',
+                '2a864886f70d010903': 'Content Type',
+                '2a864886f70d010904': 'Message Digest',
+                '2a864886f70d010905': 'Signing Time',
+                '2a864886f70d010906': 'Counter Signature',
+                '2a864886f70d010907': 'Challenge Password',
+                '2a864886f70d010908': 'Unstructured Address',
+                '2a864886f70d010909': 'Extended Certificate Attributes'
+            };
+            
+            // If it's a hex OID, try to map it
+            if (/^[0-9a-f]+$/i.test(oid)) {
+                const lowerOid = oid.toLowerCase();
+                if (oidMap[lowerOid]) {
+                    return oidMap[lowerOid];
+                }
+                // Try to convert using jsrsasign
+                try {
+                    const name = KJUR.asn1.x509.OID.oid2name(oid);
+                    if (name && names[name]) {
+                        return names[name];
+                    }
+                    if (name && name !== oid) {
+                        return name;
+                    }
+                } catch (e) {
+                    // Ignore
+                }
+                return `Unknown OID (${oid})`;
+            }
+            
             return names[oid] || oid;
         }
 
