@@ -1,1 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Certificate Request Decoder</title>
+<script src="https://cdn.jsdelivr.net/npm/jsrsasign"></script>
+<style>
+  body { font-family: Arial, sans-serif; margin: 20px; }
+  textarea { width: 100%; height: 200px; font-family: monospace; }
+  pre { background: #f0f0f0; padding: 10px; }
+  button { padding: 10px 20px; margin-top: 10px; }
+</style>
+</head>
+<body>
+<h1>Certificate Request (CSR) Decoder</h1>
+<p>Paste your CSR below (PEM format including the -----BEGIN CERTIFICATE REQUEST----- line):</p>
+<textarea id="csrInput" placeholder="Paste CSR here..."></textarea><br />
+<button onclick="decodeCSR()">Decode CSR</button>
+
+<h2>Decoded Information:</h2>
+<pre id="decodedOutput">No data decoded yet.</pre>
+
+<script>
+function decodeCSR() {
+  const csrPEM = document.getElementById('csrInput').value.trim();
+  const output = document.getElementById('decodedOutput');
+  
+  try {
+    let csr = new KJUR.asn1.csr.CertificationRequest();
+    csr.readCertPEM(csrPEM);
+    let subject = csr.getSubjectString(); // e.g. /CN=example.com/O=org
+    let pubKeyInfo = csr.getPublicKey(); // RSA or EC key info object
+    let sigAlgName = csr.getSignatureAlgorithmName();
+    let extensions = csr.getAttribute('extensionRequest');
+    
+    let result = `Subject: ${subject}\nSignature Algorithm: ${sigAlgName}\n\nPublic Key Info:\n`;
+    const pubKeyHex = pubKeyInfo.hex;
+    if(pubKeyInfo.type === 'RSA') {
+      result += `RSA Public Key (hex):\n${pubKeyHex}\n`;
+    } else {
+      result += JSON.stringify(pubKeyInfo, null, 2);
+    }
+
+    if (extensions) {
+      result += `\nRequested Extensions:\n${extensions}\n`;
+    }
+    output.textContent = result;
+  } catch (e) {
+    output.textContent = 'Error decoding CSR: ' + e.message;
+  }
+}
+</script>
+</body>
+</html>
 
