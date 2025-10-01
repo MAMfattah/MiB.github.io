@@ -48,6 +48,44 @@
             padding: 30px;
         }
 
+        .tabs {
+            display: flex;
+            gap: 0;
+            margin-bottom: 30px;
+            border-bottom: 2px solid #e0e0e0;
+            overflow-x: auto;
+        }
+
+        .tab {
+            padding: 15px 20px;
+            background: none;
+            border: none;
+            font-size: 1em;
+            font-weight: 600;
+            color: #666;
+            cursor: pointer;
+            transition: all 0.3s;
+            border-bottom: 3px solid transparent;
+            white-space: nowrap;
+        }
+
+        .tab:hover {
+            color: #667eea;
+        }
+
+        .tab.active {
+            color: #667eea;
+            border-bottom-color: #667eea;
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
         .input-section {
             margin-bottom: 30px;
         }
@@ -169,6 +207,84 @@
             font-weight: 600;
         }
 
+        .form-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+
+        .form-group {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .form-group label {
+            font-size: 0.9em;
+            margin-bottom: 5px;
+        }
+
+        .form-group input, .form-group select {
+            padding: 10px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 1em;
+            transition: border-color 0.3s;
+        }
+
+        .form-group input:focus, .form-group select:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .generated-csr {
+            margin-top: 20px;
+        }
+
+        .copy-btn {
+            background: #28a745;
+            color: white;
+            padding: 10px 20px;
+            margin-top: 10px;
+        }
+
+        .copy-btn:hover {
+            background: #218838;
+        }
+
+        .file-upload {
+            border: 2px dashed #667eea;
+            border-radius: 8px;
+            padding: 30px;
+            text-align: center;
+            background: #f8f9fa;
+            margin-bottom: 20px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .file-upload:hover {
+            background: #e9ecff;
+            border-color: #764ba2;
+        }
+
+        .file-upload input[type="file"] {
+            display: none;
+        }
+
+        .file-name {
+            margin-top: 10px;
+            font-weight: 600;
+            color: #667eea;
+        }
+
+        .upload-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+
         .sub-value {
             margin-left: 20px;
             margin-top: 5px;
@@ -183,9 +299,16 @@
         </div>
         
         <div class="content">
-            <div class="input-section">
-                <label for="certInput">Paste your Certificate or CSR (PEM format):</label>
-                <textarea id="certInput" placeholder="-----BEGIN CERTIFICATE REQUEST-----
+            <div class="tabs">
+                <button class="tab active" onclick="switchTab('decode')">Decode Certificate/CSR</button>
+                <button class="tab" onclick="switchTab('generate')">Generate CSR</button>
+                <button class="tab" onclick="switchTab('convert')">Convert to PEM</button>
+            </div>
+
+            <div id="decodeTab" class="tab-content active">
+                <div class="input-section">
+                    <label for="certInput">Paste your Certificate or CSR (PEM format):</label>
+                    <textarea id="certInput" placeholder="-----BEGIN CERTIFICATE REQUEST-----
 MIICvDCCAaQCAQAwdzELMAkGA1UEBhMCVVMxEzARBgNVBAgMCkNhbGlmb3JuaWEx
 ...
 -----END CERTIFICATE REQUEST-----
@@ -196,16 +319,154 @@ or
 MIIDXTCCAkWgAwIBAgIJAKL0UG+mRkSvMA0GCSqGSIb3DQEBCwUAMEUxCzAJBgNV
 ...
 -----END CERTIFICATE-----"></textarea>
-                
-                <div class="button-group">
-                    <button class="decode-btn" onclick="decodeCertificate()">Decode</button>
-                    <button class="clear-btn" onclick="clearAll()">Clear</button>
+                    
+                    <div class="button-group">
+                        <button class="decode-btn" onclick="decodeCertificate()">Decode</button>
+                        <button class="clear-btn" onclick="clearAll()">Clear</button>
+                    </div>
+                </div>
+
+                <div class="output-section" id="outputSection">
+                    <label>Decoded Information:</label>
+                    <div class="output-box" id="output"></div>
                 </div>
             </div>
 
-            <div class="output-section" id="outputSection">
-                <label>Decoded Information:</label>
-                <div class="output-box" id="output"></div>
+            <div id="generateTab" class="tab-content">
+                <div class="section-title">Certificate Request Information</div>
+                
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label for="cn">Common Name (CN) *</label>
+                        <input type="text" id="cn" placeholder="example.com" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="o">Organization (O)</label>
+                        <input type="text" id="o" placeholder="My Company">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="ou">Organizational Unit (OU)</label>
+                        <input type="text" id="ou" placeholder="IT Department">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="c">Country (C)</label>
+                        <input type="text" id="c" placeholder="US" maxlength="2">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="st">State/Province (ST)</label>
+                        <input type="text" id="st" placeholder="California">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="l">Locality/City (L)</label>
+                        <input type="text" id="l" placeholder="San Francisco">
+                    </div>
+                </div>
+
+                <div class="section-title">Key Configuration</div>
+                
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label for="keyType">Key Type</label>
+                        <select id="keyType">
+                            <option value="RSA">RSA</option>
+                            <option value="EC">Elliptic Curve (EC)</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group" id="rsaKeySizeGroup">
+                        <label for="keySize">RSA Key Size</label>
+                        <select id="keySize">
+                            <option value="2048">2048 bits</option>
+                            <option value="3072">3072 bits</option>
+                            <option value="4096">4096 bits</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group" id="ecCurveGroup" style="display: none;">
+                        <label for="ecCurve">EC Curve</label>
+                        <select id="ecCurve">
+                            <option value="secp256r1">secp256r1 (P-256)</option>
+                            <option value="secp384r1">secp384r1 (P-384)</option>
+                            <option value="secp521r1">secp521r1 (P-521)</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="sigAlg">Signature Algorithm</label>
+                        <select id="sigAlg">
+                            <option value="SHA256withRSA">SHA-256 with RSA</option>
+                            <option value="SHA384withRSA">SHA-384 with RSA</option>
+                            <option value="SHA512withRSA">SHA-512 with RSA</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="section-title">Subject Alternative Names (Optional)</div>
+                <div class="form-group">
+                    <label for="san">DNS Names (one per line)</label>
+                    <textarea id="san" placeholder="www.example.com&#10;api.example.com&#10;mail.example.com" style="min-height: 100px;"></textarea>
+                </div>
+
+                <div class="button-group">
+                    <button class="decode-btn" onclick="generateCSR()">Generate CSR</button>
+                    <button class="clear-btn" onclick="clearGenerate()">Clear</button>
+                </div>
+
+                <div class="output-section generated-csr" id="generatedCSRSection">
+                    <label>Generated CSR:</label>
+                    <div class="output-box" id="generatedCSR"></div>
+                    <button class="copy-btn" onclick="copyCSR()">Copy to Clipboard</button>
+                    
+                    <div style="margin-top: 20px;">
+                        <label>Private Key (Keep this secure!):</label>
+                        <div class="output-box" id="generatedKey"></div>
+                        <button class="copy-btn" onclick="copyKey()">Copy to Clipboard</button>
+                    </div>
+                </div>
+            </div>
+
+            <div id="convertTab" class="tab-content">
+                <div class="section-title">Convert Certificate and Key to PEM Format</div>
+                <p style="color: #666; margin-bottom: 20px;">Upload your certificate (.cer, .crt, .der) and private key files to combine them into a single PEM file.</p>
+                
+                <div class="upload-grid">
+                    <div>
+                        <label style="display: block; margin-bottom: 10px;">Certificate File (.cer, .crt, .der)</label>
+                        <div class="file-upload" onclick="document.getElementById('certFile').click()">
+                            <input type="file" id="certFile" accept=".cer,.crt,.der,.pem" onchange="handleCertFileUpload(event)">
+                            <div>📄 Click to upload certificate</div>
+                            <div class="file-name" id="certFileName"></div>
+                        </div>
+                    </div>
+                    
+                    <div>
+                        <label style="display: block; margin-bottom: 10px;">Private Key File (.key, .pem)</label>
+                        <div class="file-upload" onclick="document.getElementById('keyFile').click()">
+                            <input type="file" id="keyFile" accept=".key,.pem" onchange="handleKeyFileUpload(event)">
+                            <div>🔑 Click to upload private key</div>
+                            <div class="file-name" id="keyFileName"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="button-group">
+                    <button class="decode-btn" onclick="convertToPEM()">Convert to PEM</button>
+                    <button class="clear-btn" onclick="clearConvert()">Clear</button>
+                </div>
+
+                <div class="output-section" id="convertOutputSection">
+                    <label>Combined PEM File:</label>
+                    <div class="output-box" id="convertOutput"></div>
+                    <div class="button-group">
+                        <button class="copy-btn" onclick="copyPEM()">Copy to Clipboard</button>
+                        <button class="copy-btn" onclick="downloadPEM()">Download PEM File</button>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
@@ -308,6 +569,54 @@ MIIDXTCCAkWgAwIBAgIJAKL0UG+mRkSvMA0GCSqGSIb3DQEBCwUAMEUxCzAJBgNV
                         html += `<div class="info-value">Unable to parse subject: ${e.message}</div>`;
                         html += '</div>';
                     }
+                }
+                
+                // Parse extensions/attributes for SANs
+                try {
+                    const reqInfoChildren = ASN1HEX.getChildIdx(derHex, certReqInfo);
+                    // Look for attributes section (context tag [0])
+                    for (let i = 0; i < reqInfoChildren.length; i++) {
+                        const tag = derHex.substr(reqInfoChildren[i], 2);
+                        if (tag === 'a0') { // Context-specific [0] tag for attributes
+                            const attrs = ASN1HEX.getChildIdx(derHex, reqInfoChildren[i]);
+                            attrs.forEach(attrIdx => {
+                                const attrChildren = ASN1HEX.getChildIdx(derHex, attrIdx);
+                                if (attrChildren && attrChildren.length >= 2) {
+                                    const oidHex = ASN1HEX.getV(derHex, attrChildren[0]);
+                                    // Extension request OID is 1.2.840.113549.1.9.14
+                                    if (oidHex === '2a864886f70d01090e') {
+                                        const extSetIdx = attrChildren[1];
+                                        const extSeqIdx = ASN1HEX.getChildIdx(derHex, extSetIdx)[0];
+                                        const extensions = ASN1HEX.getChildIdx(derHex, extSeqIdx);
+                                        
+                                        extensions.forEach(extIdx => {
+                                            const extChildren = ASN1HEX.getChildIdx(derHex, extIdx);
+                                            if (extChildren && extChildren.length >= 2) {
+                                                const extOidHex = ASN1HEX.getV(derHex, extChildren[0]);
+                                                // SAN OID is 2.5.29.17
+                                                if (extOidHex === '551d11') {
+                                                    const sanValueIdx = extChildren[extChildren.length - 1];
+                                                    const sanHex = ASN1HEX.getV(derHex, sanValueIdx);
+                                                    const sans = parseSANs(sanHex);
+                                                    
+                                                    if (sans.length > 0) {
+                                                        html += '<div class="section-title">Subject Alternative Names (SAN):</div>';
+                                                        html += '<div class="info-group">';
+                                                        sans.forEach(san => {
+                                                            html += `<div class="info-value">DNS: ${san}</div>`;
+                                                        });
+                                                        html += '</div>';
+                                                    }
+                                                }
+                                            }
+                                        });
+                                    }
+                                }
+                            });
+                        }
+                    }
+                } catch (e) {
+                    // No SANs or unable to parse
                 }
                 
                 // Parse public key
@@ -624,6 +933,269 @@ MIIDXTCCAkWgAwIBAgIJAKL0UG+mRkSvMA0GCSqGSIb3DQEBCwUAMEUxCzAJBgNV
             document.getElementById('certInput').value = '';
             document.getElementById('output').innerHTML = '';
             document.getElementById('outputSection').classList.remove('visible');
+        }
+
+        function switchTab(tab) {
+            const tabs = document.querySelectorAll('.tab');
+            const tabContents = document.querySelectorAll('.tab-content');
+            
+            tabs.forEach(t => t.classList.remove('active'));
+            tabContents.forEach(tc => tc.classList.remove('active'));
+            
+            if (tab === 'decode') {
+                tabs[0].classList.add('active');
+                document.getElementById('decodeTab').classList.add('active');
+            } else if (tab === 'generate') {
+                tabs[1].classList.add('active');
+                document.getElementById('generateTab').classList.add('active');
+            } else if (tab === 'convert') {
+                tabs[2].classList.add('active');
+                document.getElementById('convertTab').classList.add('active');
+            }
+        }
+
+        // Handle key type change
+        document.addEventListener('DOMContentLoaded', function() {
+            const keyType = document.getElementById('keyType');
+            const sigAlg = document.getElementById('sigAlg');
+            
+            keyType.addEventListener('change', function() {
+                const rsaGroup = document.getElementById('rsaKeySizeGroup');
+                const ecGroup = document.getElementById('ecCurveGroup');
+                
+                if (this.value === 'RSA') {
+                    rsaGroup.style.display = 'block';
+                    ecGroup.style.display = 'none';
+                    sigAlg.innerHTML = `
+                        <option value="SHA256withRSA">SHA-256 with RSA</option>
+                        <option value="SHA384withRSA">SHA-384 with RSA</option>
+                        <option value="SHA512withRSA">SHA-512 with RSA</option>
+                    `;
+                } else {
+                    rsaGroup.style.display = 'none';
+                    ecGroup.style.display = 'block';
+                    sigAlg.innerHTML = `
+                        <option value="SHA256withECDSA">SHA-256 with ECDSA</option>
+                        <option value="SHA384withECDSA">SHA-384 with ECDSA</option>
+                        <option value="SHA512withECDSA">SHA-512 with ECDSA</option>
+                    `;
+                }
+            });
+        });
+
+        function generateCSR() {
+            const cn = document.getElementById('cn').value.trim();
+            
+            if (!cn) {
+                alert('Common Name (CN) is required');
+                return;
+            }
+
+            try {
+                // Get form values
+                const subject = '/CN=' + cn;
+                const o = document.getElementById('o').value.trim();
+                const ou = document.getElementById('ou').value.trim();
+                const c = document.getElementById('c').value.trim();
+                const st = document.getElementById('st').value.trim();
+                const l = document.getElementById('l').value.trim();
+                
+                let subjectStr = subject;
+                if (o) subjectStr += '/O=' + o;
+                if (ou) subjectStr += '/OU=' + ou;
+                if (c) subjectStr += '/C=' + c;
+                if (st) subjectStr += '/ST=' + st;
+                if (l) subjectStr += '/L=' + l;
+                
+                const keyType = document.getElementById('keyType').value;
+                const sigAlg = document.getElementById('sigAlg').value;
+                
+                // Generate key pair
+                let keypair;
+                if (keyType === 'RSA') {
+                    const keySize = parseInt(document.getElementById('keySize').value);
+                    keypair = KEYUTIL.generateKeypair('RSA', keySize);
+                } else {
+                    const curve = document.getElementById('ecCurve').value;
+                    keypair = KEYUTIL.generateKeypair('EC', curve);
+                }
+                
+                // Create CSR with extensions
+                const csrParams = {
+                    subject: {str: subjectStr},
+                    sbjpubkey: keypair.pubKeyObj,
+                    sigalg: sigAlg,
+                    sbjprvkey: keypair.prvKeyObj
+                };
+                
+                // Add SANs if provided
+                const sanInput = document.getElementById('san').value.trim();
+                if (sanInput) {
+                    const sanArray = sanInput.split('\n')
+                        .map(s => s.trim())
+                        .filter(s => s)
+                        .map(dns => {return {dns: dns};});
+                    
+                    if (sanArray.length > 0) {
+                        csrParams.extreq = [
+                            {
+                                extname: 'subjectAltName',
+                                array: sanArray
+                            }
+                        ];
+                    }
+                }
+                
+                const csr = new KJUR.asn1.csr.CertificationRequest(csrParams);
+                const csrPEM = csr.getPEM();
+                const keyPEM = KEYUTIL.getPEM(keypair.prvKeyObj, 'PKCS8PRV');
+                
+                // Display results
+                document.getElementById('generatedCSR').innerHTML = `<div class="info-value">${escapeHtml(csrPEM)}</div>`;
+                document.getElementById('generatedKey').innerHTML = `<div class="info-value">${escapeHtml(keyPEM)}</div>`;
+                document.getElementById('generatedCSRSection').classList.add('visible');
+                
+                // Store for copying
+                window.generatedCSRText = csrPEM;
+                window.generatedKeyText = keyPEM;
+                
+            } catch (error) {
+                alert('Error generating CSR: ' + error.message);
+                console.error(error);
+            }
+        }
+
+        function clearGenerate() {
+            document.getElementById('cn').value = '';
+            document.getElementById('o').value = '';
+            document.getElementById('ou').value = '';
+            document.getElementById('c').value = '';
+            document.getElementById('st').value = '';
+            document.getElementById('l').value = '';
+            document.getElementById('san').value = '';
+            document.getElementById('generatedCSR').innerHTML = '';
+            document.getElementById('generatedKey').innerHTML = '';
+            document.getElementById('generatedCSRSection').classList.remove('visible');
+        }
+
+        function copyCSR() {
+            if (window.generatedCSRText) {
+                navigator.clipboard.writeText(window.generatedCSRText).then(() => {
+                    alert('CSR copied to clipboard!');
+                }).catch(err => {
+                    alert('Failed to copy: ' + err);
+                });
+            }
+        }
+
+        function copyKey() {
+            if (window.generatedKeyText) {
+                navigator.clipboard.writeText(window.generatedKeyText).then(() => {
+                    alert('Private key copied to clipboard!');
+                }).catch(err => {
+                    alert('Failed to copy: ' + err);
+                });
+            }
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        // Convert to PEM functions
+        let uploadedCertContent = null;
+        let uploadedKeyContent = null;
+
+        function handleCertFileUpload(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            
+            document.getElementById('certFileName').textContent = file.name;
+            
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const arrayBuffer = e.target.result;
+                const uint8Array = new Uint8Array(arrayBuffer);
+                
+                // Try to detect if it's already PEM or DER
+                const text = new TextDecoder().decode(uint8Array);
+                if (text.includes('BEGIN CERTIFICATE')) {
+                    uploadedCertContent = text;
+                } else {
+                    // Convert DER to PEM
+                    const hex = Array.from(uint8Array).map(b => ('0' + b.toString(16)).slice(-2)).join('');
+                    const b64 = hextob64(hex);
+                    uploadedCertContent = '-----BEGIN CERTIFICATE-----\n' + 
+                                         b64.match(/.{1,64}/g).join('\n') + 
+                                         '\n-----END CERTIFICATE-----\n';
+                }
+            };
+            reader.readAsArrayBuffer(file);
+        }
+
+        function handleKeyFileUpload(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            
+            document.getElementById('keyFileName').textContent = file.name;
+            
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const text = new TextDecoder().decode(new Uint8Array(e.target.result));
+                uploadedKeyContent = text;
+            };
+            reader.readAsArrayBuffer(file);
+        }
+
+        function convertToPEM() {
+            if (!uploadedCertContent || !uploadedKeyContent) {
+                alert('Please upload both certificate and key files');
+                return;
+            }
+
+            const combinedPEM = uploadedKeyContent + '\n' + uploadedCertContent;
+            
+            document.getElementById('convertOutput').innerHTML = `<div class="info-value">${escapeHtml(combinedPEM)}</div>`;
+            document.getElementById('convertOutputSection').classList.add('visible');
+            
+            window.combinedPEMContent = combinedPEM;
+        }
+
+        function clearConvert() {
+            uploadedCertContent = null;
+            uploadedKeyContent = null;
+            document.getElementById('certFile').value = '';
+            document.getElementById('keyFile').value = '';
+            document.getElementById('certFileName').textContent = '';
+            document.getElementById('keyFileName').textContent = '';
+            document.getElementById('convertOutput').innerHTML = '';
+            document.getElementById('convertOutputSection').classList.remove('visible');
+        }
+
+        function copyPEM() {
+            if (window.combinedPEMContent) {
+                navigator.clipboard.writeText(window.combinedPEMContent).then(() => {
+                    alert('PEM content copied to clipboard!');
+                }).catch(err => {
+                    alert('Failed to copy: ' + err);
+                });
+            }
+        }
+
+        function downloadPEM() {
+            if (window.combinedPEMContent) {
+                const blob = new Blob([window.combinedPEMContent], { type: 'text/plain' });
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = 'certificate.pem';
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                window.URL.revokeObjectURL(url);
+            }
         }
     </script>
 </body>
